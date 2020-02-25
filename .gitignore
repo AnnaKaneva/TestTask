@@ -6,6 +6,8 @@
 *.sdf
 *.opensdf
 */Debug
+*/*/Debug
 */Release
 */ipch
 */x64
+*/*/x64
