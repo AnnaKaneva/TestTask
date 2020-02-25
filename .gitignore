@@ -1,0 +1,11 @@
+*.ncb
+*.vspscc
+*.suo
+*.aps
+*.user
+*.sdf
+*.opensdf
+*/Debug
+*/Release
+*/ipch
+*/x64
