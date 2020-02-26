@@ -1,4 +1,8 @@
 #pragma once
+#define HALLOC( s ) ::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, s)
+#define HREALLOC( p, s ) ::HeapReAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, p, s)
+#define HFREE( p ) ::HeapFree(::GetProcessHeap(), 0u, p)
+#define MAXPACKETSIZE 16 * 1024 // 16 KB
 
 class CTransport
 {

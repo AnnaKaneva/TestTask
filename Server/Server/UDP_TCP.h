@@ -3,10 +3,9 @@
 class CTransport
 {
 public:
-	virtual HRESULT Listen() = 0;
+	virtual HRESULT Bind() = 0;
 	virtual HRESULT Send() = 0;
 	virtual HRESULT Receive() = 0;
-	virtual HRESULT Temperary() = 0;
 	void Term();
 protected:
 	CTransport();
@@ -23,7 +22,7 @@ class CUDP : public CTransport
 public:
 	CUDP() {};
 	~CUDP() {};
-	HRESULT Listen() override;
+	HRESULT Bind() override;
 	HRESULT Send() override;
 	HRESULT Receive() override;
 };
@@ -33,9 +32,10 @@ class CTCP : public CTransport
 {
 public:
 	CTCP() {};
+	CTCP(SOCKET sckt) { m_Socket = sckt; };
 	~CTCP() {};
-	HRESULT Listen() override;
+	HRESULT Bind() override;
 	HRESULT Send() override;
 	HRESULT Receive() override;
-	HRESULT Temperary() override;
+	HRESULT Listen();
 };

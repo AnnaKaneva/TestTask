@@ -1,10 +1,7 @@
 #include "stdafx.h"
 #include "UDP_TCP.h"
 
-#define HALLOC( s ) ::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, s)
-#define HREALLOC( p, s ) ::HeapReAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, p, s)
-#define HFREE( p ) ::HeapFree(::GetProcessHeap(), 0u, p)
-#define MAXPACKETSIZE 16 * 1024 // 16 KB
+
 
 //EXAMPLE
 //::WaitForSingleObject(m_hStartEvent, INFINITE);
@@ -159,7 +156,7 @@ HRESULT CUDP::Receive()
 	}
 	//TODO: if m_pBuf not NULL semaphor or something like it
 	
-	m_pBuf = (BYTE*)HALLOC(actual_len);
+	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
 
 	if (!m_pBuf)
 	{
@@ -174,7 +171,14 @@ HRESULT CUDP::Receive()
 	HFREE(temp);
 	temp = NULL;
 
-	printf("Return from the server: %s", (char*)m_pBuf);
+	printf("Return from the server: %s\n", (char*)m_pBuf);
+
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
+		m_nBufLen = 0;
+	}
 
 	return S_OK;
 }
@@ -203,7 +207,7 @@ HRESULT CTCP::Receive()
 		return E_FAIL;
 	}
 
-	m_pBuf = (BYTE*)HALLOC(actual_len);
+	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
 
 	if (!m_pBuf)
 	{
@@ -218,7 +222,14 @@ HRESULT CTCP::Receive()
 	HFREE(temp);
 	temp = NULL;
 
-	printf("Return from the server: %s", (char*)m_pBuf);
+	printf("Return from the server: %s\n", (char*)m_pBuf);
+
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
+		m_nBufLen = 0;
+	}
 
 	return S_OK;
 }
@@ -226,10 +237,11 @@ HRESULT CTCP::Receive()
 
 HRESULT CUDP::Send(BYTE * buf, const int len)
 {
-	if (!buf || !len)
+	if (!buf || !len || len < 0)
 	{
 		return E_FAIL;
 	}
+
 	sockaddr_in addr;
 	ZeroMemory(&addr, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -250,6 +262,11 @@ HRESULT CUDP::Send(BYTE * buf, const int len)
 
 HRESULT CTCP::Send(BYTE * buf, const int len)
 {
+	if (!buf || !len || len < 0)
+	{
+		return E_FAIL;
+	}
+
 	if (send(m_Socket, (char*)buf, len, 0) == SOCKET_ERROR)
 	{
 		return E_FAIL;

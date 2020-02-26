@@ -28,7 +28,7 @@ CTransport::~CTransport()
 }
 
 
-HRESULT CUDP::Listen()
+HRESULT CUDP::Bind()
 {
 	m_Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
@@ -61,7 +61,7 @@ HRESULT CUDP::Listen()
 }
 
 
-HRESULT CTCP::Listen()
+HRESULT CTCP::Bind()
 {
 	m_Socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -83,11 +83,6 @@ HRESULT CTCP::Listen()
 		return E_FAIL;
 	}
 
-	if (listen(m_Socket, SOMAXCONN) == SOCKET_ERROR)
-	{
-		return E_FAIL;
-	}
-
 	return S_OK;
 }
 
@@ -103,7 +98,7 @@ HRESULT CUDP::Receive()
 	int res = select(0, &fd, &fd, &fd, &tv);
 	if (res == SOCKET_ERROR)
 	{
-		//int err = WSAGetLastError();
+		int err = WSAGetLastError();
 		return E_FAIL;
 	}
 
@@ -116,15 +111,15 @@ HRESULT CUDP::Receive()
 
 	if ((actual_len == SOCKET_ERROR) || !actual_len)
 	{
-		//int err = WSAGetLastError();
+		int err = WSAGetLastError();
 		HFREE(temp);
 		temp = NULL;
-		return E_FAIL;
+		return err;
 	}
 	m_Client = SenderAddr;
 	//TODO: if m_pBuf not NULL semaphor or something like it
 	
-	m_pBuf = (BYTE*)HALLOC(actual_len);
+	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
 
 	if (!m_pBuf)
 	{
@@ -166,7 +161,7 @@ HRESULT CTCP::Receive()
 		return E_FAIL;
 	}
 
-	m_pBuf = (BYTE*)HALLOC(actual_len);
+	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
 
 	if (!m_pBuf)
 	{
@@ -187,7 +182,7 @@ HRESULT CTCP::Receive()
 
 HRESULT CUDP::Send()
 {
-	if (!m_pBuf || !m_nBufLen)
+	if (!m_pBuf || !m_nBufLen || m_nBufLen < 0)
 	{
 		return E_FAIL;
 	}
@@ -201,15 +196,34 @@ HRESULT CUDP::Send()
 		return E_FAIL;
 	}
 
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
+		m_nBufLen = 0;
+	}
+
 	return S_OK;
 }
 
 
 HRESULT CTCP::Send()
 {
+	if (!m_pBuf || !m_nBufLen || m_nBufLen < 0)
+	{
+		return E_FAIL;
+	}
+
 	if (send(m_Socket, (char*)m_pBuf, m_nBufLen, 0) == SOCKET_ERROR)
 	{
 		return E_FAIL;
+	}
+
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
+		m_nBufLen = 0;
 	}
 
 	return S_OK;
@@ -230,42 +244,53 @@ void CTransport::Term()
 }
 
 
-HRESULT CTCP::Temperary()
+HRESULT CTCP::Listen()
 {
-	while (1)
+	if (listen(m_Socket, SOMAXCONN) == SOCKET_ERROR)
 	{
-		SOCKADDR_IN addr_c;
-		int addrlen = sizeof(addr_c);
-		SOCKET tcp = accept(m_Socket, (sockaddr*)&addr_c, &addrlen);
-
-		if (tcp == INVALID_SOCKET)
-		{
-			int a = WSAGetLastError();
-			continue;
-		}
-
-		/*if (connect(tcp, (sockaddr*)&addr_c, addrlen) == SOCKET_ERROR)
-		{
-			int a = WSAGetLastError();
-			return E_FAIL;
-		}*/
-
-		int time = 20000;  // 20 Secs Timeout 
-
-		if (setsockopt(tcp, SOL_SOCKET, SO_RCVTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
-		{
-			return E_FAIL;
-		}
-
-		m_Socket = tcp;
-
-		while (1)
-		{
-			if (Receive() == S_OK)
-			{
-				Send();
-			}
-		}
+		return E_FAIL;
 	}
+
 	return S_OK;
 }
+
+
+//HRESULT CTCP::Temperary()
+//{
+//	while (1)
+//	{
+//		SOCKADDR_IN addr_c;
+//		int addrlen = sizeof(addr_c);
+//		SOCKET tcp = accept(m_Socket, (sockaddr*)&addr_c, &addrlen);
+//
+//		if (tcp == INVALID_SOCKET)
+//		{
+//			int a = WSAGetLastError();
+//			continue;
+//		}
+//
+//		/*if (connect(tcp, (sockaddr*)&addr_c, addrlen) == SOCKET_ERROR)
+//		{
+//			int a = WSAGetLastError();
+//			return E_FAIL;
+//		}*/
+//
+//		int time = 20000;  // 20 Secs Timeout 
+//
+//		if (setsockopt(tcp, SOL_SOCKET, SO_RCVTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
+//		{
+//			return E_FAIL;
+//		}
+//
+//		m_Socket = tcp;
+//
+//		while (1)
+//		{
+//			if (Receive() == S_OK)
+//			{
+//				Send();
+//			}
+//		}
+//	}
+//	return S_OK;
+//}
