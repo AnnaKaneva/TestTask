@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <utility>
 
 class CTransport
 {
@@ -7,6 +9,7 @@ public:
 	virtual HRESULT Send() = 0;
 	virtual HRESULT Receive() = 0;
 	void Term();
+	HANDLE m_hCloseEvent;
 protected:
 	CTransport();
 	~CTransport();
@@ -28,14 +31,25 @@ public:
 };
 
 
-class CTCP : public CTransport
+class CTCPConn : public CTransport
 {
 public:
-	CTCP() {};
-	CTCP(SOCKET sckt) { m_Socket = sckt; };
-	~CTCP() {};
+	CTCPConn(SOCKET sckt, sockaddr_in addr);
+	~CTCPConn() {};
 	HRESULT Bind() override;
 	HRESULT Send() override;
 	HRESULT Receive() override;
-	HRESULT Listen();
+};
+
+
+class CTCPMain : public CTransport
+{
+public:
+	CTCPMain() {};
+	~CTCPMain();
+	HRESULT Bind() override;
+	HRESULT Send() override { return E_FAIL; };
+	HRESULT Receive() override { return E_FAIL; };
+	DWORD WINAPI Accept();
+	std::vector <std::pair<HANDLE, CTCPConn*>> m_pVecConn;
 };

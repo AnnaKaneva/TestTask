@@ -5,23 +5,31 @@
 #include "UDP_TCP.h"
 
 
-DWORD UDPloop(CUDP * transp)
+DWORD WINAPI UDPloop(LPVOID transp)
 {
 	for (;;)
 	{
 		int err = 0;
-		if ((err = transp->Receive()) == S_OK)
+		if ((err = ((CUDP*)transp)->Receive()) == S_OK)
 		{
-			if (transp->Send() != S_OK)
+			if (((CUDP*)transp)->Send() != S_OK)
 			{
+				::SetEvent(((CUDP*)transp)->m_hCloseEvent);
 				return 1;
 			}
 		}
 		else if (err != WSAETIMEDOUT)
 		{
+			::SetEvent(((CUDP*)transp)->m_hCloseEvent);
 			return 1;
 		}
 	}
+}
+
+
+DWORD WINAPI TCPloop(LPVOID transp)
+{
+	return ((CTCPMain*)transp)->Accept();
 }
 
 
@@ -37,21 +45,40 @@ int main()
 	}
 
 	CTransport * UDP = new CUDP();
-	UDP->Bind();
-	UDPloop((CUDP*)UDP);
+	CTransport * TCP = new CTCPMain();
 
-	/*CTransport * UDP = new CUDP();
 	UDP->Bind();
-	while (1)
+	TCP->Bind();
+
+	HANDLE m_hUdp = CreateThread(NULL, 0, UDPloop, UDP, 0, NULL);
+
+	if (!m_hUdp)
 	{
-		if (UDP->Receive() == S_OK)
-		{
-			UDP->Send();
-		}
-	}*/
-	/*CTransport * TCP = new CTCP();
-	TCP->Listen();
-	TCP->Temperary();*/
+		return 1;
+	}
+
+	HANDLE m_hTcp = CreateThread(NULL, 0, TCPloop, TCP, 0, NULL);
+
+	if (!m_hTcp)
+	{
+		return 1;
+	}
+
+	HANDLE handles[2] = {UDP->m_hCloseEvent, TCP->m_hCloseEvent};
+
+	::WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+
+	if (m_hUdp)
+	{
+		::CloseHandle(m_hUdp);
+		m_hUdp = NULL;
+	}
+
+	if (m_hTcp)
+	{
+		::CloseHandle(m_hTcp);
+		m_hTcp = NULL;
+	}
 
 	WSACleanup();
     return 0;
