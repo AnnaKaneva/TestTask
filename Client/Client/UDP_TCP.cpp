@@ -1,20 +1,12 @@
 #include "stdafx.h"
 #include "UDP_TCP.h"
-
-
-
-//EXAMPLE
-//::WaitForSingleObject(m_hStartEvent, INFINITE);
-//
-//HANDLE m_hRTCPThread = (HANDLE)CreateNamedThread<g25::CRtsp20,
-//	&g25::CRtsp20::StartRTCP>("RTCP_Thread", this, NULL, 0, 0, NULL);
+#include <iostream>
 
 
 CTransport::CTransport()
 {
 	m_pBuf = NULL;
 	m_nBufLen = 0;
-	//TODO: randomizer of ports
 	m_nServPort = 10005;
 	m_pServIP = NULL;
 	m_nLocalPort = 10001;
@@ -29,10 +21,23 @@ CTransport::~CTransport()
 
 HRESULT CUDP::Connection(const char * IP)
 {
-	//TODO check for null in m_pServIP
+	if (strlen(IP) <= 0)
+	{
+		std::cout << "Incorrect arguments" << std::endl;
+		return E_INVALIDARG;
+	}
+
+	if (m_pServIP)
+	{
+		HFREE(m_pServIP);
+		m_pServIP = NULL;
+	}
+
 	m_pServIP = (char*)HALLOC(strlen(IP) + 1);
+
 	if (!m_pServIP)
 	{
+		std::cout << "Couldn't allocate the memory" << std::endl;
 		return E_OUTOFMEMORY;
 	}
 
@@ -42,6 +47,7 @@ HRESULT CUDP::Connection(const char * IP)
 
 	if (m_Socket == INVALID_SOCKET)
 	{
+		std::cout << "Couldn't create a socket: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 
@@ -55,6 +61,7 @@ HRESULT CUDP::Connection(const char * IP)
 	if (bind(m_Socket, (SOCKADDR*)&addrMy, sizeof(addrMy)) == SOCKET_ERROR)
 	{
 		int a = WSAGetLastError();
+		std::cout << "An error occured while binding: " << a << std::endl;
 		return E_FAIL;
 	}
 
@@ -62,6 +69,13 @@ HRESULT CUDP::Connection(const char * IP)
 
 	if (setsockopt(m_Socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
 	{
+		std::cout << "An error occured while setting timer for receiving: " << WSAGetLastError() << std::endl;
+		return E_FAIL;
+	}
+
+	if (setsockopt(m_Socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
+	{
+		std::cout << "An error occured while setting timer for sending: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 
@@ -71,9 +85,23 @@ HRESULT CUDP::Connection(const char * IP)
 
 HRESULT CTCP::Connection(const char * IP)
 {
+	if (strlen(IP) <= 0)
+	{
+		std::cout << "Incorrect arguments" << std::endl;
+		return E_INVALIDARG;
+	}
+
+	if (m_pServIP)
+	{
+		HFREE(m_pServIP);
+		m_pServIP = NULL;
+	}
+
 	m_pServIP = (char*)HALLOC(strlen(IP) + 1);
+
 	if (!m_pServIP)
 	{
+		std::cout << "Couldn't allocate the memory" << std::endl;
 		return E_OUTOFMEMORY;
 	}
 
@@ -83,6 +111,7 @@ HRESULT CTCP::Connection(const char * IP)
 
 	if (m_Socket == INVALID_SOCKET)
 	{
+		std::cout << "Couldn't create a socket: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 
@@ -96,20 +125,34 @@ HRESULT CTCP::Connection(const char * IP)
 	if (bind(m_Socket, (SOCKADDR*)&addrMy, sizeof(addrMy)) == SOCKET_ERROR)
 	{
 		int a = WSAGetLastError();
+		std::cout << "An error occured while binding: " << a << std::endl;
+		return E_FAIL;
+	}
+
+	int time = 20000;  // 20 Secs Timeout 
+
+	if (setsockopt(m_Socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
+	{
+		std::cout << "An error occured while setting timer for receiving: " << WSAGetLastError() << std::endl;
+		return E_FAIL;
+	}
+
+	if (setsockopt(m_Socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&time, sizeof(time)) == SOCKET_ERROR)
+	{
+		std::cout << "An error occured while setting timer for sending: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 
 	sockaddr_in addr;
 	ZeroMemory(&addr, sizeof(addr));
 	addr.sin_family = AF_INET;
-	//TODO: hardcode of the server ip
 	addr.sin_addr.S_un.S_addr = inet_addr(m_pServIP);
-
 	addr.sin_port = htons((u_short)m_nServPort);
 
 	if (connect(m_Socket, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
 	{
 		int a = WSAGetLastError();
+		std::cout << "An error occured while connecting: " << a << std::endl;
 		return E_FAIL;
 	}
 
@@ -119,20 +162,14 @@ HRESULT CTCP::Connection(const char * IP)
 
 HRESULT CUDP::Receive()
 {
-	fd_set fd = {1, m_Socket};
-	timeval tv;
-	tv.tv_sec = 20;
-	FD_ZERO(&fd);
-	FD_SET(m_Socket, &fd);
+	char * temp = (char*)HALLOC(MAXPACKETSIZE);
 
-	int res = select(0, &fd, &fd, &fd, &tv);
-	if (res == SOCKET_ERROR)
+	if (!temp)
 	{
-		//int err = WSAGetLastError();
-		return E_FAIL;
+		std::cout << "Couldn't allocate the memory" << std::endl;
+		return E_OUTOFMEMORY;
 	}
 
-	char * temp = (char*)HALLOC(MAXPACKETSIZE);
 	sockaddr_in SenderAddr;
 	int SenderAddrSize = sizeof(SenderAddr);
 	int actual_len = 0;
@@ -141,7 +178,8 @@ HRESULT CUDP::Receive()
 
 	if ((actual_len == SOCKET_ERROR) || !actual_len)
 	{
-		//int err = WSAGetLastError();
+		int err = WSAGetLastError();
+		std::cout << "An error occured while receiving: " << err << std::endl;
 		HFREE(temp);
 		temp = NULL;
 		return E_FAIL;
@@ -149,12 +187,17 @@ HRESULT CUDP::Receive()
 
 	if (SenderAddr.sin_addr.S_un.S_addr != inet_addr(m_pServIP))
 	{
-		//skip packet from unknown destination
 		HFREE(temp);
 		temp = NULL;
-		return S_OK;
+		std::cout << "Received packet fron unknown destination" << std::endl;
+		return E_FAIL;
 	}
-	//TODO: if m_pBuf not NULL semaphor or something like it
+
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
+	}
 	
 	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
 
@@ -162,6 +205,7 @@ HRESULT CUDP::Receive()
 	{
 		HFREE(temp);
 		temp = NULL;
+		std::cout << "Couldn't allocate the memory" << std::endl;
 		return E_OUTOFMEMORY;
 	}
 
@@ -171,7 +215,7 @@ HRESULT CUDP::Receive()
 	HFREE(temp);
 	temp = NULL;
 
-	printf("Return from the server: %s\n", (char*)m_pBuf);
+	std::cout << "Return from the server: " << (char*)m_pBuf << std::endl;
 
 	if (m_pBuf)
 	{
@@ -191,20 +235,25 @@ HRESULT CTCP::Receive()
 
 	if (!temp)
 	{
+		std::cout << "Couldn't allocate the memory" << std::endl;
 		return E_OUTOFMEMORY;
 	}
 
-	while (!actual_len)
-	{
-		actual_len = recv(m_Socket, temp, MAXPACKETSIZE, 0);
-	}
+	actual_len = recv(m_Socket, temp, MAXPACKETSIZE, 0);
 
-	if (actual_len == SOCKET_ERROR)
+	if ((actual_len == SOCKET_ERROR) || !actual_len)
 	{
-		//int err = WSAGetLastError();
+		int err = WSAGetLastError();
 		HFREE(temp);
 		temp = NULL;
+		std::cout << "An error occured while setting timer for receiving: " << err << std::endl;
 		return E_FAIL;
+	}
+
+	if (m_pBuf)
+	{
+		HFREE(m_pBuf);
+		m_pBuf = NULL;
 	}
 
 	m_pBuf = (BYTE*)HALLOC(actual_len + 1);
@@ -213,6 +262,7 @@ HRESULT CTCP::Receive()
 	{
 		HFREE(temp);
 		temp = NULL;
+		std::cout << "Couldn't allocate the memory" << std::endl;
 		return E_OUTOFMEMORY;
 	}
 
@@ -222,7 +272,7 @@ HRESULT CTCP::Receive()
 	HFREE(temp);
 	temp = NULL;
 
-	printf("Return from the server: %s\n", (char*)m_pBuf);
+	std::cout << "Return from the server: " << (char*)m_pBuf << std::endl;
 
 	if (m_pBuf)
 	{
@@ -239,7 +289,8 @@ HRESULT CUDP::Send(BYTE * buf, const int len)
 {
 	if (!buf || !len || len < 0)
 	{
-		return E_FAIL;
+		std::cout << "Incorrect arguments" << std::endl;
+		return E_INVALIDARG;
 	}
 
 	sockaddr_in addr;
@@ -253,6 +304,7 @@ HRESULT CUDP::Send(BYTE * buf, const int len)
 
 	if (!retlen || (retlen == SOCKET_ERROR))
 	{
+		std::cout << "An error occured while setting timer for sending: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 
@@ -264,11 +316,15 @@ HRESULT CTCP::Send(BYTE * buf, const int len)
 {
 	if (!buf || !len || len < 0)
 	{
-		return E_FAIL;
+		std::cout << "Incorrect arguments" << std::endl;
+		return E_INVALIDARG;
 	}
 
-	if (send(m_Socket, (char*)buf, len, 0) == SOCKET_ERROR)
+	int retlen = send(m_Socket, (char*)buf, len, 0);
+
+	if ((retlen == SOCKET_ERROR) || !retlen)
 	{
+		std::cout << "An error occured while setting timer for sending: " << WSAGetLastError() << std::endl;
 		return E_FAIL;
 	}
 

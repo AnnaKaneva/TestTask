@@ -5,14 +5,14 @@
 class CTransport
 {
 public:
+	CTransport();
+	~CTransport();
 	virtual HRESULT Bind() = 0;
 	virtual HRESULT Send() = 0;
 	virtual HRESULT Receive() = 0;
 	void Term();
 	HANDLE m_hCloseEvent;
 protected:
-	CTransport();
-	~CTransport();
 	SOCKET m_Socket;
 	sockaddr_in m_Client;
 	int m_nLocalPort;
@@ -51,5 +51,5 @@ public:
 	HRESULT Send() override { return E_FAIL; };
 	HRESULT Receive() override { return E_FAIL; };
 	DWORD WINAPI Accept();
-	std::vector <std::pair<HANDLE, CTCPConn*>> m_pVecConn;
+	std::vector <std::pair<HANDLE, CTransport*>> m_pVecConn;
 };

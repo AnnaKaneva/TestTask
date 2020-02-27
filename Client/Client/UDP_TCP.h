@@ -22,6 +22,7 @@ protected:
 	int m_nBufLen;
 };
 
+
 class CUDP : public CTransport
 {
 public:

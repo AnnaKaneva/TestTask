@@ -13,7 +13,7 @@ int main()
 	//TODO: limited times of enter
 	for (int i = 0; i < 3; i++)
 	{
-		printf("Choose transport protocol.\nEnter 1 for TCP and 2 for UDP.\n");
+		cout << "Choose transport protocol.\nEnter 1 for TCP and 2 for UDP." << endl;
 		cin >> prot;
 
 		if ((prot == 1) || (prot == 2))
@@ -23,11 +23,11 @@ int main()
 
 		if (i == 2)
 		{
-			printf("Last try was incorrect.\nClient closing.\n");
+			cout << "Last try was incorrect.\nClient closing." << endl;
 			return 1;
 		}
 
-		printf("Incorrect number were entered.\nTry again.\n");
+		cout << "Incorrect number were entered.\nTry again." << endl;
 	}
 	
 	WSADATA wsaData;
@@ -35,17 +35,17 @@ int main()
 
 	if (err == SOCKET_ERROR)
 	{
-		printf("WSAStartup() failed: %ld\n", GetLastError());
+		cout << "WSAStartup() failed: " << GetLastError() << endl;
 		return 1;
 	}
 
 	CTransport  * clnt;
 
 	if (prot == 1) {
-		clnt = new CTCP();
+		clnt = new(nothrow) CTCP();
 	} 
 	else {
-		clnt = new CUDP();
+		clnt = new(nothrow) CUDP();
 	}
 
 	if (clnt->Connection("192.168.1.70") != S_OK)
@@ -57,12 +57,13 @@ int main()
 
 	for (;;)
 	{
-		printf("Enter the text:\n");
+		cout << "Enter the text:" << endl;
 		
 		char * text = (char*)HALLOC(MAXPACKETSIZE);
 
 		if (!text)
 		{
+			cout << "Couldn't allocate the memory" << endl;
 			return 1;
 		}	
 
